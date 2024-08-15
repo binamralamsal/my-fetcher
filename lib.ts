@@ -13,17 +13,20 @@ export function isAPIError<T>(error: unknown): error is APIError<T> {
 
 interface APIFetcherConfig {
   baseUrl?: string;
-  defaultHeaders?: HTTPHeaders;
+  headers?: HTTPHeaders;
+  credentials?: Options["credentials"];
 }
 
 export class APIFetcher {
   private baseUrl: string;
-  private defaultHeaders: HTTPHeaders;
+  private headers: HTTPHeaders;
+  private credentials: Options["credentials"];
 
   constructor(config: APIFetcherConfig = {}) {
-    const { baseUrl = "", defaultHeaders = {} } = config;
+    const { baseUrl = "", credentials, headers = {} } = config;
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    this.defaultHeaders = defaultHeaders;
+    this.headers = headers;
+    this.credentials = credentials;
   }
 
   private async fetchData<TResponse>(
@@ -32,14 +35,17 @@ export class APIFetcher {
     opts: Options
   ) {
     const { body, method = "GET", headers: customHeaders } = opts;
-    const headers = { ...this.defaultHeaders, ...customHeaders };
+    const headers = { ...this.headers, ...customHeaders };
     const requestBody = this.prepareRequestBody(body, headers);
+    const baseUrl = opts.baseUrl ?? this.baseUrl;
+    const credentials = opts.credentials ?? this.credentials;
 
-    const fullUrl = this.baseUrl + url;
+    const fullUrl = baseUrl + url;
 
     const response = await fetch(fullUrl, {
       method,
       headers,
+      credentials,
       body: requestBody,
     });
     const data =

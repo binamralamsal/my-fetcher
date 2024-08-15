@@ -2,6 +2,8 @@ export type Options = {
   headers?: HTTPHeaders;
   body?: Record<string, unknown> | string | FormData | undefined;
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | (string & {});
+  credentials?: "omit" | "same-origin" | "include";
+  baseUrl?: string;
 };
 
 // Credit: https://github.com/elysiajs/elysia/blob/main/src/types.ts

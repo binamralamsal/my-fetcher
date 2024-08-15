@@ -1,8 +1,8 @@
-import { APIError, APIFetcher, api, isAPIError } from "./lib";
+import { APIFetcher, isAPIError } from "./lib";
 
 const customApi = new APIFetcher({
   baseUrl: "https://jsonplaceholder.typicode.com",
-  defaultHeaders: {
+  headers: {
     "x-api-key": "123",
   },
 });
