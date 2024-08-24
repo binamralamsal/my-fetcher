@@ -206,7 +206,11 @@ export type APISchema = Record<
   Partial<
     Record<
       "get" | "post" | "put" | "delete" | "patch",
-      { error: unknown; success: unknown }
+      {
+        error: unknown;
+        success: unknown;
+        body?: unknown; // Make body optional in the schema
+      }
     >
   >
 >;

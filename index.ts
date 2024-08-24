@@ -5,6 +5,10 @@ type API = {
     post: {
       error: { message: string };
       success: { name: string; id: string; email: string };
+      body: {
+        username: string;
+        age: number;
+      };
     };
     get: {
       error: { message: string };
@@ -15,6 +19,7 @@ type API = {
     post: {
       error: { message: string };
       success: { name: string; id: string; email: string };
+      body: { as: boolean };
     };
     get: {
       error: { message: string };
@@ -45,7 +50,10 @@ const response = await customApi
   .post("/users/:id/:username", {
     params: {
       id: "asdf",
-      username: "sd",
+      username: "asdf",
+    },
+    body: {
+      as: true,
     },
   })
   .json();

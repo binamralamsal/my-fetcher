@@ -101,10 +101,19 @@ export class APIFetcher<TRoutes extends APISchema> {
         | (string & {})
     >(
       url: T,
-      opts?: Omit<Options, "method" | "params"> &
+      opts?: Omit<Options, "method" | "params" | "body"> &
         (ExtractParams<T> extends Record<string, never>
           ? {}
-          : { params: ExtractParams<T> })
+          : { params: ExtractParams<T> }) &
+        (TMethod extends "get"
+          ? {}
+          : TRoutes[T][TMethod] extends { body: infer TBody }
+          ? {
+              body: TBody extends string | FormData | Record<string, unknown>
+                ? TBody
+                : never;
+            }
+          : { body?: Record<string, unknown> | string | FormData })
     ) => {
       type Route = TRoutes[T];
       type ResultType = Route extends Record<TMethod, infer TRoute>
