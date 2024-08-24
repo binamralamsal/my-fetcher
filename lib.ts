@@ -5,13 +5,6 @@ import type {
   Options,
 } from "./types";
 
-export class APIError<T = unknown> extends Error {
-  constructor(public status: number, statusText: string, public data: T) {
-    super(statusText);
-    this.name = "APIError";
-  }
-}
-
 export type ExtractParams<T extends string> =
   T extends `${infer _Start}:${infer Param}/${infer Rest}`
     ? { [K in Param | keyof ExtractParams<`/${Rest}`>]: string }
@@ -43,15 +36,33 @@ export class APIFetcher<TRoutes extends APISchema> {
   private async fetchData<TResponse, TError>(
     url: string,
     type: "json" | "text",
-    opts: Options & { params?: Record<string, string> }
+    opts: Options & {
+      params?: Record<string, string>;
+      queryParams?: Record<string, unknown>;
+    }
   ) {
-    const { body, method = "GET", headers: customHeaders, params = {} } = opts;
+    const {
+      body,
+      method = "GET",
+      headers: customHeaders,
+      params = {},
+      queryParams = {},
+    } = opts;
     const headers = { ...this.headers, ...customHeaders };
     const requestBody = this.prepareRequestBody(body, headers);
     const baseUrl = opts.baseUrl ?? this.baseUrl;
     const credentials = opts.credentials ?? this.credentials;
 
-    const fullUrl = baseUrl + this.replaceUrlParams(url, params);
+    const queryParamsValueAsString = Object.fromEntries(
+      Object.entries(queryParams).map(([key, value]) => [key, String(value)])
+    );
+    const searchParams = new URLSearchParams(
+      queryParamsValueAsString
+    ).toString();
+
+    const fullUrl = `${baseUrl}${this.replaceUrlParams(url, params)}${
+      searchParams ? `?${searchParams}` : ""
+    }`;
 
     const response = await fetch(fullUrl, {
       method,
@@ -113,7 +124,14 @@ export class APIFetcher<TRoutes extends APISchema> {
                 ? TBody
                 : never;
             }
-          : { body?: Record<string, unknown> | string | FormData })
+          : { body?: Record<string, unknown> | string | FormData }) &
+        (TRoutes[T][TMethod] extends { queryParams: infer TQuery }
+          ? {
+              queryParams?: TQuery extends Record<string, unknown>
+                ? Partial<TQuery>
+                : never;
+            }
+          : { queryParams?: Record<string, unknown> })
     ) => {
       type Route = TRoutes[T];
       type ResultType = Route extends Record<TMethod, infer TRoute>
