@@ -1,25 +1,42 @@
-import { APIFetcher, isAPIError } from "./lib";
+import { api, APIFetcher } from "./lib";
 
-const customApi = new APIFetcher({
+type API = {
+  "/users": {
+    post: {
+      error: { message: string };
+      success: { name: string; id: string; email: string };
+    };
+    get: {
+      error: { message: string };
+      success: { name: string; id: string };
+    };
+  };
+  "/asdf": {
+    get: {
+      error: { ds: string };
+      success: { good: number };
+    };
+    post: {
+      error: { ds: string };
+      success: { good: number };
+    };
+  };
+};
+
+const customApi = new APIFetcher<API>({
   baseUrl: "https://jsonplaceholder.typicode.com",
   headers: {
     "x-api-key": "123",
   },
 });
 
-try {
-  const data = await customApi
-    .post("/posts", {
-      body: {
-        title: "foo",
-        body: "bar",
-      },
-    })
-    .json<{ hello: string }>();
+const response = await customApi
+  .get("/users", {
+    body: {
+      title: "foo",
+      body: "bar",
+    },
+  })
+  .json();
 
-  console.log(data);
-} catch (error) {
-  if (isAPIError<{ status: number; message: string }>(error)) {
-    console.log(error.data);
-  }
-}
+const response2 = await api.get("asdf").json<{ hello: string }>();

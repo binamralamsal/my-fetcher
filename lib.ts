@@ -7,17 +7,23 @@ export class APIError<T = unknown> extends Error {
   }
 }
 
-export function isAPIError<T>(error: unknown): error is APIError<T> {
-  return error instanceof APIError;
-}
-
 interface APIFetcherConfig {
   baseUrl?: string;
   headers?: HTTPHeaders;
   credentials?: Options["credentials"];
 }
 
-export class APIFetcher {
+export class APIFetcher<
+  TRoutes extends Record<
+    string,
+    Partial<
+      Record<
+        "get" | "post" | "put" | "delete" | "patch",
+        { error: unknown; success: unknown }
+      >
+    >
+  >
+> {
   private baseUrl: string;
   private headers: HTTPHeaders;
   private credentials: Options["credentials"];
@@ -29,7 +35,7 @@ export class APIFetcher {
     this.credentials = credentials;
   }
 
-  private async fetchData<TResponse>(
+  private async fetchData<TResponse, TError>(
     url: string,
     type: "json" | "text",
     opts: Options
@@ -51,16 +57,21 @@ export class APIFetcher {
     const data =
       type === "json" ? await response.json() : await response.text();
 
-    if (!response.ok)
-      throw new APIError(response.status, response.statusText, data);
-
-    return {
-      data: data as TResponse,
+    const result = {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
       type: response.type,
       url: response.url,
+    };
+
+    if (!response.ok)
+      return { ...result, data: data as TError, ok: false as const };
+
+    return {
+      ...result,
+      data: data as TResponse,
+      ok: true as const,
     };
   }
 
@@ -72,19 +83,54 @@ export class APIFetcher {
     return body;
   }
 
-  private createMethod(method: string) {
-    return (url: string, opts: Omit<Options, "method"> = {}) => ({
-      json: <T = unknown>() =>
-        this.fetchData<T>(url, "json", { ...opts, method }),
-      text: () => this.fetchData<string>(url, "text", { ...opts, method }),
-    });
+  private createMethod<
+    TMethod extends "get" | "post" | "put" | "delete" | "patch"
+  >(method: TMethod) {
+    return <
+      T extends
+        | keyof {
+            [K in keyof TRoutes as TMethod extends keyof TRoutes[K]
+              ? K
+              : never]: any;
+          }
+        | (string & {})
+    >(
+      url: T,
+      opts: Omit<Options, "method"> = {}
+    ) => {
+      type Route = TRoutes[T];
+      type ResultType = Route extends Record<TMethod, infer TRoute>
+        ? TRoute extends { success: infer TSuccess }
+          ? TSuccess
+          : unknown
+        : unknown;
+      type ErrorType = Route extends Record<TMethod, infer TRoute>
+        ? TRoute extends { error: infer TError }
+          ? TError
+          : unknown
+        : unknown;
+
+      if (typeof url !== "string") {
+        throw new Error("The URL must be a string.");
+      }
+
+      return {
+        json: <CustomResultType = ResultType, CustomErrorType = ErrorType>() =>
+          this.fetchData<CustomResultType, CustomErrorType>(url, "json", {
+            ...opts,
+            method,
+          }),
+        text: () =>
+          this.fetchData<string, ErrorType>(url, "text", { ...opts, method }),
+      };
+    };
   }
 
-  get = this.createMethod("GET");
-  post = this.createMethod("POST");
-  put = this.createMethod("PUT");
-  delete = this.createMethod("DELETE");
-  patch = this.createMethod("PATCH");
+  get = this.createMethod("get");
+  post = this.createMethod("post");
+  put = this.createMethod("put");
+  delete = this.createMethod("delete");
+  patch = this.createMethod("patch");
 }
 
 export const api = new APIFetcher();
