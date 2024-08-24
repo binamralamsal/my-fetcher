@@ -194,3 +194,26 @@ export type BaseMime =
   | "video/3gpp2"
   | "model/gltf+json"
   | "model/gltf-binary";
+
+export interface APIFetcherConfig {
+  baseUrl?: string;
+  headers?: HTTPHeaders;
+  credentials?: Options["credentials"];
+}
+
+export type APISchema = Record<
+  string,
+  Partial<
+    Record<
+      "get" | "post" | "put" | "delete" | "patch",
+      { error: unknown; success: unknown }
+    >
+  >
+>;
+
+export type ExtractParams<T extends string> =
+  T extends `${infer _Start}:${infer Param}/${infer Rest}`
+    ? { [K in Param | keyof ExtractParams<`/${Rest}`>]: string }
+    : T extends `${infer _Start}:${infer Param}`
+    ? { [K in Param]: string }
+    : {};

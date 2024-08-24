@@ -1,4 +1,9 @@
-import type { HTTPHeaders, Options } from "./types";
+import type {
+  APIFetcherConfig,
+  APISchema,
+  HTTPHeaders,
+  Options,
+} from "./types";
 
 export class APIError<T = unknown> extends Error {
   constructor(public status: number, statusText: string, public data: T) {
@@ -7,23 +12,14 @@ export class APIError<T = unknown> extends Error {
   }
 }
 
-interface APIFetcherConfig {
-  baseUrl?: string;
-  headers?: HTTPHeaders;
-  credentials?: Options["credentials"];
-}
+export type ExtractParams<T extends string> =
+  T extends `${infer _Start}:${infer Param}/${infer Rest}`
+    ? { [K in Param | keyof ExtractParams<`/${Rest}`>]: string }
+    : T extends `${infer _Start}:${infer Param}`
+    ? { [K in Param]: string }
+    : {};
 
-export class APIFetcher<
-  TRoutes extends Record<
-    string,
-    Partial<
-      Record<
-        "get" | "post" | "put" | "delete" | "patch",
-        { error: unknown; success: unknown }
-      >
-    >
-  >
-> {
+export class APIFetcher<TRoutes extends APISchema> {
   private baseUrl: string;
   private headers: HTTPHeaders;
   private credentials: Options["credentials"];
@@ -35,18 +31,27 @@ export class APIFetcher<
     this.credentials = credentials;
   }
 
+  private replaceUrlParams(url: string, params: Record<string, string>) {
+    return url.replace(/:(\w+)/g, (_, key) => {
+      if (params[key] === undefined) {
+        throw new Error(`Missing URL parameter: ${key}`);
+      }
+      return encodeURIComponent(params[key]);
+    });
+  }
+
   private async fetchData<TResponse, TError>(
     url: string,
     type: "json" | "text",
-    opts: Options
+    opts: Options & { params?: Record<string, string> }
   ) {
-    const { body, method = "GET", headers: customHeaders } = opts;
+    const { body, method = "GET", headers: customHeaders, params = {} } = opts;
     const headers = { ...this.headers, ...customHeaders };
     const requestBody = this.prepareRequestBody(body, headers);
     const baseUrl = opts.baseUrl ?? this.baseUrl;
     const credentials = opts.credentials ?? this.credentials;
 
-    const fullUrl = baseUrl + url;
+    const fullUrl = baseUrl + this.replaceUrlParams(url, params);
 
     const response = await fetch(fullUrl, {
       method,
@@ -96,7 +101,10 @@ export class APIFetcher<
         | (string & {})
     >(
       url: T,
-      opts: Omit<Options, "method"> = {}
+      opts?: Omit<Options, "method" | "params"> &
+        (ExtractParams<T> extends Record<string, never>
+          ? {}
+          : { params: ExtractParams<T> })
     ) => {
       type Route = TRoutes[T];
       type ResultType = Route extends Record<TMethod, infer TRoute>
