@@ -1,16 +1,11 @@
 import type {
   APIFetcherConfig,
   APISchema,
+  ExtractParams,
   HTTPHeaders,
   Options,
+  Prettify,
 } from "./types";
-
-export type ExtractParams<T extends string> =
-  T extends `${infer _Start}:${infer Param}/${infer Rest}`
-    ? { [K in Param | keyof ExtractParams<`/${Rest}`>]: string }
-    : T extends `${infer _Start}:${infer Param}`
-    ? { [K in Param]: string }
-    : {};
 
 export class APIFetcher<TRoutes extends APISchema> {
   private baseUrl: string;
@@ -82,11 +77,11 @@ export class APIFetcher<TRoutes extends APISchema> {
     };
 
     if (!response.ok)
-      return { ...result, data: data as TError, ok: false as const };
+      return { ...result, data: data as Prettify<TError>, ok: false as const };
 
     return {
       ...result,
-      data: data as TResponse,
+      data: data as Prettify<TResponse>,
       ok: true as const,
     };
   }

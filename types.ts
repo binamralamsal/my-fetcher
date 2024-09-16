@@ -6,6 +6,10 @@ export type Options = {
   baseUrl?: string;
 };
 
+export type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
 // Credit: https://github.com/elysiajs/elysia/blob/main/src/types.ts
 export type HTTPHeaders = Record<string, string> & {
   // Authentication
@@ -209,7 +213,7 @@ export type APISchema = Record<
       {
         error: unknown;
         success: unknown;
-        body?: unknown; // Make body optional in the schema
+        body?: unknown;
       }
     >
   >
