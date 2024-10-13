@@ -4,6 +4,8 @@ export type Options = {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | (string & {});
   credentials?: "omit" | "same-origin" | "include";
   baseUrl?: string;
+  signal?: AbortSignal;
+  cache?: RequestCache;
 };
 
 export type Prettify<T> = {
@@ -219,9 +221,11 @@ export type APISchema = Record<
   >
 >;
 
-export type ExtractParams<T extends string> =
-  T extends `${infer _Start}:${infer Param}/${infer Rest}`
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export type ExtractParams<T extends string> = T extends `${string}://${infer _}`
+  ? never
+  : T extends `${string}:${infer Param}/${infer Rest}`
     ? { [K in Param | keyof ExtractParams<`/${Rest}`>]: string }
-    : T extends `${infer _Start}:${infer Param}`
-    ? { [K in Param]: string }
-    : {};
+    : T extends `${string}:${infer Param}`
+      ? { [K in Param]: string }
+      : never;

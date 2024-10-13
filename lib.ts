@@ -34,7 +34,7 @@ export class APIFetcher<TRoutes extends APISchema> {
     opts: Options & {
       params?: Record<string, string>;
       queryParams?: Record<string, unknown>;
-    }
+    },
   ) {
     const {
       body,
@@ -49,10 +49,10 @@ export class APIFetcher<TRoutes extends APISchema> {
     const credentials = opts.credentials ?? this.credentials;
 
     const queryParamsValueAsString = Object.fromEntries(
-      Object.entries(queryParams).map(([key, value]) => [key, String(value)])
+      Object.entries(queryParams).map(([key, value]) => [key, String(value)]),
     );
     const searchParams = new URLSearchParams(
-      queryParamsValueAsString
+      queryParamsValueAsString,
     ).toString();
 
     const fullUrl = `${baseUrl}${this.replaceUrlParams(url, params)}${
@@ -63,7 +63,9 @@ export class APIFetcher<TRoutes extends APISchema> {
       method,
       headers,
       credentials,
+      signal: opts.signal,
       body: requestBody,
+      cache: opts.cache,
     });
     const data =
       type === "json" ? await response.json() : await response.text();
@@ -95,54 +97,84 @@ export class APIFetcher<TRoutes extends APISchema> {
   }
 
   private createMethod<
-    TMethod extends "get" | "post" | "put" | "delete" | "patch"
+    TMethod extends "get" | "post" | "put" | "delete" | "patch",
   >(method: TMethod) {
     return <
       T extends
         | keyof {
             [K in keyof TRoutes as TMethod extends keyof TRoutes[K]
               ? K
-              : never]: any;
+              : never]: unknown;
           }
-        | (string & {})
+        | (string & Record<string, unknown>),
     >(
       url: T,
-      opts?: Omit<Options, "method" | "params" | "body"> &
-        (ExtractParams<T> extends Record<string, never>
-          ? {}
-          : { params: ExtractParams<T> }) &
-        (TMethod extends "get"
-          ? {}
-          : TRoutes[T][TMethod] extends { body: infer TBody }
-          ? {
-              body: TBody extends string | FormData | Record<string, unknown>
-                ? TBody
-                : never;
-            }
-          : { body?: Record<string, unknown> | string | FormData }) &
-        (TRoutes[T][TMethod] extends { queryParams: infer TQuery }
-          ? {
-              queryParams?: TQuery extends Record<string, unknown>
-                ? Partial<TQuery>
-                : never;
-            }
-          : { queryParams?: Record<string, unknown> })
+      ...args: ExtractParams<T> extends Record<string, never>
+        ? [
+            opts?: Omit<Options, "method" | "params" | "body"> &
+              (TMethod extends "get"
+                ? Record<string, unknown>
+                : TRoutes[T][TMethod] extends { body: infer TBody }
+                  ? {
+                      body: TBody extends
+                        | string
+                        | FormData
+                        | Record<string, unknown>
+                        ? TBody
+                        : never;
+                    }
+                  : { body?: Record<string, unknown> | string | FormData }) &
+              (TRoutes[T][TMethod] extends { queryParams: infer TQuery }
+                ? {
+                    queryParams?: TQuery extends Record<string, unknown>
+                      ? Partial<TQuery>
+                      : never;
+                  }
+                : { queryParams?: Record<string, unknown> }),
+          ]
+        : [
+            opts: Omit<Options, "method" | "params" | "body"> & {
+              params: ExtractParams<T>;
+            } & (TMethod extends "get"
+                ? Record<string, unknown>
+                : TRoutes[T][TMethod] extends { body: infer TBody }
+                  ? {
+                      body: TBody extends
+                        | string
+                        | FormData
+                        | Record<string, unknown>
+                        ? TBody
+                        : never;
+                    }
+                  : { body?: Record<string, unknown> | string | FormData }) &
+              (TRoutes[T][TMethod] extends { queryParams: infer TQuery }
+                ? {
+                    queryParams?: TQuery extends Record<string, unknown>
+                      ? Partial<TQuery>
+                      : never;
+                  }
+                : { queryParams?: Record<string, unknown> }),
+          ]
     ) => {
       type Route = TRoutes[T];
-      type ResultType = Route extends Record<TMethod, infer TRoute>
-        ? TRoute extends { success: infer TSuccess }
-          ? TSuccess
-          : unknown
-        : unknown;
-      type ErrorType = Route extends Record<TMethod, infer TRoute>
-        ? TRoute extends { error: infer TError }
-          ? TError
-          : unknown
-        : unknown;
+      type ResultType =
+        Route extends Record<TMethod, infer TRoute>
+          ? TRoute extends { success: infer TSuccess }
+            ? TSuccess
+            : unknown
+          : unknown;
+      type ErrorType =
+        Route extends Record<TMethod, infer TRoute>
+          ? TRoute extends { error: infer TError }
+            ? TError
+            : unknown
+          : unknown;
 
       if (typeof url !== "string") {
         throw new Error("The URL must be a string.");
       }
+
+      const [opts] = args;
 
       return {
         json: <CustomResultType = ResultType, CustomErrorType = ErrorType>() =>
